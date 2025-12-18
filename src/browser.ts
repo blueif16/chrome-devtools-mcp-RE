@@ -56,6 +56,7 @@ export async function ensureBrowserConnected(options: {
   const connectOptions: Parameters<typeof puppeteer.connect>[0] = {
     targetFilter: makeTargetFilter(),
     defaultViewport: null,
+    // @ts-expect-error rebrowser-puppeteer may not have this option
     handleDevToolsAsPage: true,
   };
 
@@ -130,6 +131,16 @@ export async function launch(options: McpLaunchOptions): Promise<Browser> {
         : 'chrome';
   }
 
+  process.env.REBROWSER_PATCHES_RUNTIME_FIX_MODE = 'alwaysIsolated';
+
+  const stealthArgs = [
+    '--disable-blink-features=AutomationControlled',
+    '--exclude-switches=enable-automation',
+    '--disable-dev-shm-usage',
+    '--disable-features=IsolateOrigins,site-per-process',
+    '--disable-site-isolation-trials',
+  ];
+
   try {
     const browser = await puppeteer.launch({
       channel: puppeteerChannel,
@@ -139,9 +150,11 @@ export async function launch(options: McpLaunchOptions): Promise<Browser> {
       userDataDir,
       pipe: true,
       headless,
-      args,
+      args: [...args, ...stealthArgs],
       acceptInsecureCerts: options.acceptInsecureCerts,
+      // @ts-expect-error rebrowser-puppeteer may not have this option
       handleDevToolsAsPage: true,
+      ignoreDefaultArgs: ['--enable-automation'],
     });
     if (options.logFile) {
       // FIXME: we are probably subscribing too late to catch startup logs. We

@@ -66,6 +66,7 @@ export const emulate = defineTool({
         context.setNetworkConditions(null);
       } else if (networkConditions === 'Offline') {
         await page.emulateNetworkConditions({
+          // @ts-expect-error rebrowser-puppeteer NetworkConditions API difference
           offline: true,
           download: 0,
           upload: 0,

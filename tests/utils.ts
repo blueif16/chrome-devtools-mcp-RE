@@ -6,8 +6,8 @@
 
 import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 import logger from 'debug';
-import type {Browser} from 'puppeteer';
-import puppeteer, {Locator} from 'puppeteer';
+import type {Browser} from 'rebrowser-puppeteer';
+import puppeteer, {Locator} from 'rebrowser-puppeteer';
 import type {
   Frame,
   HTTPRequest,
@@ -54,6 +54,7 @@ export async function withBrowser(
     defaultViewport: null,
     devtools: options.autoOpenDevTools ?? false,
     pipe: true,
+    // @ts-expect-error rebrowser-puppeteer may not have this option
     handleDevToolsAsPage: true,
   };
   const key = JSON.stringify(launchOptions);
@@ -66,7 +67,7 @@ export async function withBrowser(
   const newPage = await browser.newPage();
   // Close other pages.
   await Promise.all(
-    (await browser.pages()).map(async page => {
+    (await browser.pages()).map(async (page: any) => {
       if (page !== newPage) {
         await page.close();
       }

@@ -25,7 +25,7 @@ export {
   Locator,
   PredefinedNetworkConditions,
   CDPSessionEvent,
-} from 'puppeteer-core';
-export {default as puppeteer} from 'puppeteer-core';
-export type * from 'puppeteer-core';
-export type {CdpPage} from 'puppeteer-core/internal/cdp/Page.js';
+} from 'rebrowser-puppeteer-core';
+export {default as puppeteer} from 'rebrowser-puppeteer-core';
+export type * from 'rebrowser-puppeteer-core';
+export type {CdpPage} from 'rebrowser-puppeteer-core/internal/cdp/Page.js';

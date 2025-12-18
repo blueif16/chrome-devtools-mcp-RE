@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {describe, it} from 'node:test';
 
-import {executablePath} from 'puppeteer';
+import {executablePath} from 'rebrowser-puppeteer';
 
 import {launch} from '../src/browser.js';
 

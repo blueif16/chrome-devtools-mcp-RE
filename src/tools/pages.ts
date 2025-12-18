@@ -177,6 +177,7 @@ export const navigatePage = defineTool({
           try {
             await page.reload({
               ...options,
+              // @ts-expect-error rebrowser-puppeteer reload options difference
               ignoreCache: request.params.ignoreCache,
             });
             response.appendResponseLine(`Successfully reloaded the page.`);

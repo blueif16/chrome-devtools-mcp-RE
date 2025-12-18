@@ -10,7 +10,7 @@ import {describe, it} from 'node:test';
 
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
-import {executablePath} from 'puppeteer';
+import {executablePath} from 'rebrowser-puppeteer';
 
 describe('e2e', () => {
   async function withClient(cb: (client: Client) => Promise<void>) {

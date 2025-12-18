@@ -407,6 +407,7 @@ export class McpContext implements Context {
    */
   async createPagesSnapshot(): Promise<Page[]> {
     const allPages = await this.browser.pages(
+      // @ts-expect-error rebrowser-puppeteer pages() signature changed
       this.#options.experimentalIncludeAllPages,
     );
 
@@ -434,6 +435,7 @@ export class McpContext implements Context {
   async detectOpenDevToolsWindows() {
     this.logger('Detecting open DevTools windows');
     const pages = await this.browser.pages(
+      // @ts-expect-error rebrowser-puppeteer pages() signature changed
       this.#options.experimentalIncludeAllPages,
     );
     this.#pageToDevToolsPage = new Map<Page, Page>();

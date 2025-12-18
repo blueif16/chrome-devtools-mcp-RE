@@ -10,6 +10,7 @@ import type {ResourceType} from '../third_party/index.js';
 import {ToolCategory} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
 
+// @ts-expect-error rebrowser-puppeteer ResourceType enum differences
 const FILTERABLE_RESOURCE_TYPES: readonly [ResourceType, ...ResourceType[]] = [
   'document',
   'stylesheet',

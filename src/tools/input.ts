@@ -8,13 +8,14 @@ import type {McpContext, TextSnapshotNode} from '../McpContext.js';
 import {zod} from '../third_party/index.js';
 import type {ElementHandle} from '../third_party/index.js';
 import {parseKey} from '../utils/keyboard.js';
+import {getHumanCursor} from '../utils/human-cursor.js';
 
 import {ToolCategory} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
 
 export const click = defineTool({
   name: 'click',
-  description: `Clicks on the provided element`,
+  description: `Clicks on the provided element with optional human-like behavior (default: enabled)`,
   annotations: {
     category: ToolCategory.INPUT,
     readOnlyHint: false,
@@ -29,20 +30,44 @@ export const click = defineTool({
       .boolean()
       .optional()
       .describe('Set to true for double clicks. Default is false.'),
+    useGhostCursor: zod
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('Use human-like cursor movement with random delays. Default is true.'),
   },
   handler: async (request, response, context) => {
     const uid = request.params.uid;
     const handle = await context.getElementByUid(uid);
+    const useGhost = request.params.useGhostCursor !== false;
+
     try {
       await context.waitForEventsAfterAction(async () => {
-        await handle.asLocator().click({
-          count: request.params.dblClick ? 2 : 1,
-        });
+        if (useGhost) {
+          const page = context.getSelectedPage();
+          const cursor = getHumanCursor(page);
+          const selector = await handle.evaluate((el: Element) => {
+            const id = el.id;
+            if (id) return `#${id}`;
+            const classes = Array.from(el.classList).join('.');
+            if (classes) return `${el.tagName.toLowerCase()}.${classes}`;
+            return el.tagName.toLowerCase();
+          });
+          await cursor.click(selector);
+          if (request.params.dblClick) {
+            await cursor.click(selector);
+          }
+        } else {
+          // @ts-expect-error rebrowser-puppeteer ElementHandle API difference
+          await handle.asLocator().click({
+            count: request.params.dblClick ? 2 : 1,
+          });
+        }
       });
       response.appendResponseLine(
         request.params.dblClick
-          ? `Successfully double clicked on the element`
-          : `Successfully clicked on the element`,
+          ? `Successfully double clicked on the element${useGhost ? ' (human-like)' : ''}`
+          : `Successfully clicked on the element${useGhost ? ' (human-like)' : ''}`,
       );
       response.includeSnapshot();
     } finally {
@@ -53,7 +78,7 @@ export const click = defineTool({
 
 export const hover = defineTool({
   name: 'hover',
-  description: `Hover over the provided element`,
+  description: `Hover over the provided element with optional human-like movement (default: enabled)`,
   annotations: {
     category: ToolCategory.INPUT,
     readOnlyHint: false,
@@ -64,15 +89,36 @@ export const hover = defineTool({
       .describe(
         'The uid of an element on the page from the page content snapshot',
       ),
+    useGhostCursor: zod
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('Use human-like cursor movement with random delays. Default is true.'),
   },
   handler: async (request, response, context) => {
     const uid = request.params.uid;
     const handle = await context.getElementByUid(uid);
+    const useGhost = request.params.useGhostCursor !== false;
+
     try {
       await context.waitForEventsAfterAction(async () => {
-        await handle.asLocator().hover();
+        if (useGhost) {
+          const page = context.getSelectedPage();
+          const cursor = getHumanCursor(page);
+          const selector = await handle.evaluate((el: Element) => {
+            const id = el.id;
+            if (id) return `#${id}`;
+            const classes = Array.from(el.classList).join('.');
+            if (classes) return `${el.tagName.toLowerCase()}.${classes}`;
+            return el.tagName.toLowerCase();
+          });
+          await cursor.move(selector);
+        } else {
+          // @ts-expect-error rebrowser-puppeteer ElementHandle API difference
+          await handle.asLocator().hover();
+        }
       });
-      response.appendResponseLine(`Successfully hovered over the element`);
+      response.appendResponseLine(`Successfully hovered over the element${useGhost ? ' (human-like)' : ''}`);
       response.includeSnapshot();
     } finally {
       void handle.dispose();
@@ -100,6 +146,7 @@ async function selectOption(
           try {
             const childValue = await childValueHandle.jsonValue();
             if (childValue) {
+              // @ts-expect-error rebrowser-puppeteer ElementHandle API difference
               await handle.asLocator().fill(childValue.toString());
             }
           } finally {
@@ -128,6 +175,7 @@ async function fillFormElement(
     if (aXNode && aXNode.role === 'combobox') {
       await selectOption(handle, aXNode, value);
     } else {
+      // @ts-expect-error rebrowser-puppeteer ElementHandle API difference
       await handle.asLocator().fill(value);
     }
   } finally {
@@ -137,7 +185,7 @@ async function fillFormElement(
 
 export const fill = defineTool({
   name: 'fill',
-  description: `Type text into a input, text area or select an option from a <select> element.`,
+  description: `Type text into a input, text area or select an option from a <select> element with optional human-like typing (default: enabled)`,
   annotations: {
     category: ToolCategory.INPUT,
     readOnlyHint: false,
@@ -149,16 +197,41 @@ export const fill = defineTool({
         'The uid of an element on the page from the page content snapshot',
       ),
     value: zod.string().describe('The value to fill in'),
+    useGhostCursor: zod
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('Use human-like typing with random delays between keystrokes. Default is true.'),
   },
   handler: async (request, response, context) => {
+    const useGhost = request.params.useGhostCursor !== false;
+
     await context.waitForEventsAfterAction(async () => {
-      await fillFormElement(
-        request.params.uid,
-        request.params.value,
-        context as McpContext,
-      );
+      if (useGhost) {
+        const page = context.getSelectedPage();
+        const cursor = getHumanCursor(page);
+        const handle = await context.getElementByUid(request.params.uid);
+        try {
+          const selector = await handle.evaluate((el: Element) => {
+            const id = el.id;
+            if (id) return `#${id}`;
+            const classes = Array.from(el.classList).join('.');
+            if (classes) return `${el.tagName.toLowerCase()}.${classes}`;
+            return el.tagName.toLowerCase();
+          });
+          await cursor.type(selector, request.params.value);
+        } finally {
+          void handle.dispose();
+        }
+      } else {
+        await fillFormElement(
+          request.params.uid,
+          request.params.value,
+          context as McpContext,
+        );
+      }
     });
-    response.appendResponseLine(`Successfully filled out the element`);
+    response.appendResponseLine(`Successfully filled out the element${useGhost ? ' (human-like)' : ''}`);
     response.includeSnapshot();
   },
 });
@@ -255,6 +328,7 @@ export const uploadFile = defineTool({
           const page = context.getSelectedPage();
           const [fileChooser] = await Promise.all([
             page.waitForFileChooser({timeout: 3000}),
+            // @ts-expect-error rebrowser-puppeteer ElementHandle API difference
             handle.asLocator().click(),
           ]);
           await fileChooser.accept([filePath]);
