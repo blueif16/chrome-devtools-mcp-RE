@@ -148,3 +148,5 @@ build/
 log.txt
 
 .DS_Store
+
+settings*.json

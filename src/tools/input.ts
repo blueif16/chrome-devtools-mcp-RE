@@ -9,6 +9,8 @@ import {zod} from '../third_party/index.js';
 import type {ElementHandle} from '../third_party/index.js';
 import {parseKey} from '../utils/keyboard.js';
 import {getHumanCursor} from '../utils/human-cursor.js';
+import {ensureMouseHelper} from '../utils/mouse-helper.js';
+import {ensureScreenPositionPatch} from '../utils/screen-position-patcher.js';
 
 import {ToolCategory} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
@@ -45,6 +47,15 @@ export const click = defineTool({
       await context.waitForEventsAfterAction(async () => {
         if (useGhost) {
           const page = context.getSelectedPage();
+
+          // 自动安装调试和反检测补丁
+          if (context.shouldAutoInstallMouseHelper()) {
+            await ensureMouseHelper(page);
+          }
+          if (context.shouldAutoInstallScreenPositionPatch()) {
+            await ensureScreenPositionPatch(page);
+          }
+
           const cursor = getHumanCursor(page);
           const selector = await handle.evaluate((el: Element) => {
             const id = el.id;
@@ -104,6 +115,15 @@ export const hover = defineTool({
       await context.waitForEventsAfterAction(async () => {
         if (useGhost) {
           const page = context.getSelectedPage();
+
+          // 自动安装调试和反检测补丁
+          if (context.shouldAutoInstallMouseHelper()) {
+            await ensureMouseHelper(page);
+          }
+          if (context.shouldAutoInstallScreenPositionPatch()) {
+            await ensureScreenPositionPatch(page);
+          }
+
           const cursor = getHumanCursor(page);
           const selector = await handle.evaluate((el: Element) => {
             const id = el.id;
@@ -209,6 +229,15 @@ export const fill = defineTool({
     await context.waitForEventsAfterAction(async () => {
       if (useGhost) {
         const page = context.getSelectedPage();
+
+        // 自动安装调试和反检测补丁
+        if (context.shouldAutoInstallMouseHelper()) {
+          await ensureMouseHelper(page);
+        }
+        if (context.shouldAutoInstallScreenPositionPatch()) {
+          await ensureScreenPositionPatch(page);
+        }
+
         const cursor = getHumanCursor(page);
         const handle = await context.getElementByUid(request.params.uid);
         try {

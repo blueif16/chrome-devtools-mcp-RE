@@ -53,6 +53,10 @@ async function getContext(): Promise<McpContext> {
     extraArgs.push(`--proxy-server=${args.proxyServer}`);
   }
   const devtools = args.experimentalDevtools ?? false;
+
+  // 判断是否为独立模式（Local Mode）
+  const isLocalMode = !args.browserUrl && !args.wsEndpoint;
+
   const browser =
     args.browserUrl || args.wsEndpoint
       ? await ensureBrowserConnected({
@@ -78,6 +82,9 @@ async function getContext(): Promise<McpContext> {
     context = await McpContext.from(browser, logger, {
       experimentalDevToolsDebugging: devtools,
       experimentalIncludeAllPages: args.experimentalIncludeAllPages,
+      // 在独立模式（Local Mode）下默认启用 mouse helper 和 screen position patch
+      autoInstallMouseHelper: isLocalMode,
+      autoInstallScreenPositionPatch: isLocalMode,
     });
   }
   return context;

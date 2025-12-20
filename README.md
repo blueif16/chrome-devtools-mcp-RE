@@ -19,6 +19,9 @@ Chrome DevTools for reliable automation, in-depth debugging, and performance ana
 - **Reliable automation**. Uses
   [puppeteer](https://github.com/puppeteer/puppeteer) to automate actions in
   Chrome and automatically wait for action results.
+- **人类化交互**: 集成 [ghost-cursor](https://github.com/Xetera/ghost-cursor) 实现自然的鼠标移动轨迹，避免被检测为机器人。
+- **视觉调试工具**: 提供可视化鼠标助手，在页面上显示红色光标指示器，方便调试和验证自动化操作。
+- **反检测补丁**: 自动修复鼠标事件坐标不匹配等常见的自动化检测向量。
 
 ## Disclaimers
 
@@ -343,6 +346,75 @@ If you run into any issues, checkout our [troubleshooting guide](./docs/troubles
   - [`take_snapshot`](docs/tool-reference.md#take_snapshot)
 
 <!-- END AUTO GENERATED TOOLS -->
+
+## 人类化交互与视觉调试
+
+### Ghost Cursor - 人类化鼠标移动
+
+本项目集成了 [ghost-cursor](https://github.com/Xetera/ghost-cursor) 库，为浏览器自动化提供自然的人类化鼠标移动轨迹。
+
+**特性:**
+- 自然的贝塞尔曲线鼠标移动路径
+- 随机延迟模拟真实用户行为
+- 避免被反爬虫系统检测为机器人
+
+**使用方法:**
+
+所有输入工具（`click`、`hover`、`fill`）默认启用 Ghost Cursor。如需禁用，可设置 `useGhostCursor: false`：
+
+```javascript
+// 使用人类化点击（默认）
+await click({ uid: "element_id" });
+
+// 禁用人类化行为
+await click({ uid: "element_id", useGhostCursor: false });
+```
+
+### 视觉鼠标助手
+
+视觉鼠标助手在页面上显示一个红色光标指示器，跟随鼠标移动，方便调试和验证 Ghost Cursor 的移动轨迹。
+
+**工具:**
+
+- **`install_mouse_helper`**: 在页面上安装视觉鼠标助手
+- **`toggle_mouse_helper`**: 切换鼠标助手的显示/隐藏
+  - 参数: `visible` (boolean) - true=显示，false=隐藏
+- **`remove_mouse_helper`**: 从页面移除鼠标助手
+
+**自动启用:**
+
+在**独立模式（Local Mode）**下，鼠标助手会在使用 Ghost Cursor 时自动安装，无需手动调用。
+
+```bash
+# 独立模式（默认）- 自动启用视觉调试
+npx chrome-devtools-mcp@latest
+
+# Browserless 模式 - 不会自动启用
+npx chrome-devtools-mcp@latest --browserUrl=http://127.0.0.1:9222
+```
+
+**什么是独立模式？**
+- **独立模式（Local Mode）**：MCP 服务器自动启动和管理 Chrome 浏览器实例（不使用 `--browserUrl` 或 `--wsEndpoint` 参数）
+- **Browserless 模式**：连接到外部浏览器（使用 `--browserUrl` 或 `--wsEndpoint` 参数）
+
+### 屏幕位置补丁
+
+屏幕位置补丁修复了自动化环境中 `mouseEvent.screenX/screenY` 与 `clientX/clientY` 不一致的问题，这是一个常见的自动化检测向量。
+
+**工具:**
+
+- **`install_screen_position_patch`**: 安装屏幕位置补丁，确保鼠标事件坐标与真实浏览器行为一致
+
+**自动启用:**
+
+在**独立模式（Local Mode）**下，屏幕位置补丁会在使用 Ghost Cursor 时自动安装。
+
+**技术细节:**
+
+补丁通过 CDP (Chrome DevTools Protocol) 注入脚本，修复以下问题：
+- 自动计算正确的 `screenX/screenY` 坐标
+- 修复事件监听器中的坐标不匹配
+- 确保与真实浏览器行为一致
 
 ## Configuration
 

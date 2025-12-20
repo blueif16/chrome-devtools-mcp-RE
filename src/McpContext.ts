@@ -59,6 +59,10 @@ interface McpContextOptions {
   experimentalDevToolsDebugging: boolean;
   // Whether all page-like targets are exposed as pages.
   experimentalIncludeAllPages?: boolean;
+  // Whether to auto-install mouse helper in isolated mode
+  autoInstallMouseHelper?: boolean;
+  // Whether to auto-install screen position patch
+  autoInstallScreenPositionPatch?: boolean;
 }
 
 const DEFAULT_TIMEOUT = 5_000;
@@ -295,6 +299,14 @@ export class McpContext implements Context {
   getGeolocation(): GeolocationOptions | null {
     const page = this.getSelectedPage();
     return this.#geolocationMap.get(page) ?? null;
+  }
+
+  shouldAutoInstallMouseHelper(): boolean {
+    return this.#options.autoInstallMouseHelper ?? false;
+  }
+
+  shouldAutoInstallScreenPositionPatch(): boolean {
+    return this.#options.autoInstallScreenPositionPatch ?? false;
   }
 
   setIsRunningPerformanceTrace(x: boolean): void {

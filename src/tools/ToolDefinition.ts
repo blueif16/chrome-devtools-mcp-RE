@@ -110,6 +110,8 @@ export type Context = Readonly<{
   waitForEventsAfterAction(action: () => Promise<unknown>): Promise<void>;
   waitForTextOnPage(text: string, timeout?: number): Promise<Element>;
   getDevToolsData(): Promise<DevToolsData>;
+  shouldAutoInstallMouseHelper(): boolean;
+  shouldAutoInstallScreenPositionPatch(): boolean;
   /**
    * Returns a reqid for a cdpRequestId.
    */
