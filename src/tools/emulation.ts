@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import {logger} from '../logger.js';
 import {zod, PredefinedNetworkConditions} from '../third_party/index.js';
 
 import {ToolCategory} from './categories.js';
@@ -56,7 +57,7 @@ export const emulate = defineTool({
         'Geolocation to emulate. Set to null to clear the geolocation override.',
       ),
   },
-  handler: async (request, _response, context) => {
+  handler: async (request, response, context) => {
     const page = context.getSelectedPage();
     const {networkConditions, cpuThrottlingRate, geolocation} = request.params;
 
@@ -89,6 +90,13 @@ export const emulate = defineTool({
     }
 
     if (geolocation !== undefined) {
+      // 警告：setGeolocation 使用 Emulation.setGeolocationOverride CDP 命令
+      // 这是高风险操作，可能被反爬虫系统检测
+      // 最佳实践：在 Rebrowser Profile 设置中配置地理位置
+      // 参考：https://rebrowser.net/blog/how-to-fix-runtime-enable-cdp-detection
+      logger('⚠️  WARNING: setGeolocation uses Emulation CDP commands which may increase detection risk');
+      logger('⚠️  Best practice: Configure geolocation in Rebrowser Profile settings instead');
+
       if (geolocation === null) {
         await page.setGeolocation({latitude: 0, longitude: 0});
         context.setGeolocation(null);
@@ -96,6 +104,9 @@ export const emulate = defineTool({
         await page.setGeolocation(geolocation);
         context.setGeolocation(geolocation);
       }
+
+      response.appendResponseLine('⚠️  Note: Geolocation emulation uses CDP commands that may be detected by anti-bot systems.');
+      response.appendResponseLine('For production use, configure geolocation in your browser profile settings instead.');
     }
   },
 });

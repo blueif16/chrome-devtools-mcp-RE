@@ -22,6 +22,11 @@ Chrome DevTools for reliable automation, in-depth debugging, and performance ana
 - **人类化交互**: 集成 [ghost-cursor](https://github.com/Xetera/ghost-cursor) 实现自然的鼠标移动轨迹，避免被检测为机器人。
 - **视觉调试工具**: 提供可视化鼠标助手，在页面上显示红色光标指示器，方便调试和验证自动化操作。
 - **反检测补丁**: 自动修复鼠标事件坐标不匹配等常见的自动化检测向量。
+- **反爬虫检测优化**: 使用 [rebrowser-puppeteer](https://github.com/rebrowser/rebrowser-patches) 修复 `Runtime.enable` CDP 检测问题，通过真实设备指纹而非伪造指纹来避免被反爬虫系统识别。遵循 Rebrowser 最佳实践，包括：
+  - 使用 Binary Patches 从源头移除 `navigator.webdriver` 属性
+  - 避免使用 `Emulation.*` CDP 命令（如 `setGeolocation`）
+  - 优化页面复用逻辑以提升性能（节省 500-700ms）
+  - 自动监控敏感 CDP 命令并发出警告
 
 ## Disclaimers
 

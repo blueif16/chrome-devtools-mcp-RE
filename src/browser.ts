@@ -125,13 +125,23 @@ export async function launch(options: McpLaunchOptions): Promise<Browser> {
     args.push('--auto-open-devtools-for-tabs');
   }
   if (!executablePath) {
-    puppeteerChannel =
-      channel && channel !== 'stable'
-        ? (`chrome-${channel}` as ChromeReleaseChannel)
-        : 'chrome';
+    // 只有在用户明确指定 channel 时才使用系统 Chrome
+    // 否则让 rebrowser-puppeteer 下载 Binary Patches 版本的 Chrome
+    // 这样可以从源头移除 navigator.webdriver，通过 Level 2 检测
+    if (channel) {
+      puppeteerChannel =
+        channel !== 'stable'
+          ? (`chrome-${channel}` as ChromeReleaseChannel)
+          : 'chrome';
+    }
+    // 如果 channel 为 undefined，puppeteerChannel 保持 undefined
+    // rebrowser-puppeteer 会自动下载补丁版 Chrome
   }
 
-  process.env.REBROWSER_PATCHES_RUNTIME_FIX_MODE = 'alwaysIsolated';
+  // 移除 Runtime Patches 环境变量，让 rebrowser-puppeteer 使用 Binary Patches
+  // Binary Patches 会下载预编译的修改版 Chrome，从源头移除 navigator.webdriver
+  // 参考: docs/self_improve/fail_records/prd_webdriver_detection_20251220.md
+  // process.env.REBROWSER_PATCHES_RUNTIME_FIX_MODE = 'alwaysIsolated';
 
   const stealthArgs = [
     '--disable-blink-features=AutomationControlled',

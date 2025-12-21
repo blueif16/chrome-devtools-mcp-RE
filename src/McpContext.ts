@@ -160,11 +160,169 @@ export class McpContext implements Context {
     const pages = await this.createPagesSnapshot();
     await this.#networkCollector.init(pages);
     await this.#consoleCollector.init(pages);
+    // 注释掉自定义反检测脚本，依赖 rebrowser-puppeteer 的原生补丁
+    // 参考: docs/self_improve/fail_records/prd_webdriver_detection_20251220.md
+    // for (const page of pages) {
+    //   await this.#injectAntiDetectionScript(page);
+    // }
+
+    // 添加 Rebrowser CDP 命令监控（仅在 Rebrowser Cloud 环境下有效）
+    // 参考：https://rebrowser.net/blog/how-to-fix-runtime-enable-cdp-detection
+    await this.#setupRebrowserMonitoring(pages);
+  }
+
+  /**
+   * 设置 Rebrowser 监控，检测敏感 CDP 命令和泄漏
+   * 仅在 Rebrowser Cloud 环境下有效
+   */
+  async #setupRebrowserMonitoring(pages: Page[]): Promise<void> {
+    for (const page of pages) {
+      try {
+        // @ts-expect-error _client() is internal API
+        const client = page._client();
+        if (!client || typeof client.on !== 'function') {
+          continue;
+        }
+
+        // 监听 Rebrowser 警告（敏感 CDP 命令）
+        client.on('Rebrowser.warning', (params: any) => {
+          this.logger('🚨 REBROWSER WARNING:', JSON.stringify(params, null, 2));
+          this.logger('⚠️  This CDP command may increase detection risk!');
+        });
+
+        // 监听 Runtime.consoleAPICalled 泄漏检测
+        // 如果没有显式调用 console.log 却收到此事件，说明有 CDP 泄漏
+        client.on('Runtime.consoleAPICalled', (message: any) => {
+          this.logger('⚠️  CDP LEAK DETECTED: Runtime.consoleAPICalled event received');
+          this.logger('   This may indicate Runtime.enable detection vulnerability');
+        });
+
+        this.logger('✅ Rebrowser monitoring enabled for page:', page.url());
+      } catch (error) {
+        // 如果不是 Rebrowser Cloud 环境，这些事件不存在，这是正常的
+        this.logger('Rebrowser monitoring not available (not using Rebrowser Cloud)');
+      }
+    }
+  }
+
+  async #injectAntiDetectionScript(page: Page) {
+    await page.evaluateOnNewDocument(() => {
+      // 方法 1: 使用 Proxy 完全隐藏 webdriver 属性
+      const originalNavigator = window.navigator;
+      const navigatorProxy = new Proxy(originalNavigator, {
+        get: (target, prop) => {
+          if (prop === 'webdriver') {
+            return undefined;
+          }
+          return target[prop as keyof Navigator];
+        },
+        has: (target, prop) => {
+          if (prop === 'webdriver') {
+            return false;
+          }
+          return prop in target;
+        },
+      });
+
+      // 替换 window.navigator
+      try {
+        Object.defineProperty(window, 'navigator', {
+          get: () => navigatorProxy,
+          configurable: true,
+        });
+      } catch (e) {
+        // 如果无法替换，尝试删除原型链上的属性
+        try {
+          delete Object.getPrototypeOf(navigator).webdriver;
+        } catch (e2) {
+          // 忽略错误
+        }
+      }
+
+      // 确保 window.chrome 对象存在
+      if (typeof window.chrome === 'undefined') {
+        Object.defineProperty(window, 'chrome', {
+          value: {
+            runtime: {},
+            loadTimes: function() {},
+            csi: function() {},
+            app: {},
+          },
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        });
+      }
+
+      // 确保 navigator.plugins 有内容
+      if (!navigator.plugins || navigator.plugins.length === 0) {
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => [
+            {
+              0: {type: 'application/x-google-chrome-pdf', suffixes: 'pdf', description: 'Portable Document Format'},
+              description: 'Portable Document Format',
+              filename: 'internal-pdf-viewer',
+              length: 1,
+              name: 'Chrome PDF Plugin',
+            },
+            {
+              0: {type: 'application/pdf', suffixes: 'pdf', description: 'Portable Document Format'},
+              description: 'Portable Document Format',
+              filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai',
+              length: 1,
+              name: 'Chrome PDF Viewer',
+            },
+            {
+              0: {type: 'application/x-nacl', suffixes: '', description: 'Native Client Executable'},
+              description: 'Native Client Executable',
+              filename: 'internal-nacl-plugin',
+              length: 2,
+              name: 'Native Client',
+            },
+          ],
+        });
+      }
+
+      // 确保 navigator.permissions 存在
+      if (typeof navigator.permissions === 'undefined') {
+        Object.defineProperty(navigator, 'permissions', {
+          value: {
+            query: () => Promise.resolve({ state: 'granted' }),
+          },
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        });
+      }
+    });
   }
 
   dispose() {
     this.#networkCollector.dispose();
     this.#consoleCollector.dispose();
+  }
+
+  /**
+   * 在关闭浏览器前调用此方法（仅用于 Rebrowser Cloud）
+   * 本地运行时不需要调用
+   * 参考：https://rebrowser.net/blog/how-to-fix-runtime-enable-cdp-detection
+   */
+  async finishRebrowserRun(): Promise<void> {
+    try {
+      const pages = await this.browser.pages();
+      if (pages.length > 0) {
+        const page = pages[0];
+        // @ts-expect-error _client() is internal API
+        const client = page._client();
+        if (client && typeof client.send === 'function') {
+          await client.send('Rebrowser.finishRun');
+          this.logger('✅ Rebrowser.finishRun called successfully');
+        }
+      }
+    } catch (error) {
+      // 如果不是 Rebrowser Cloud 环境，这个命令会失败，这是正常的
+      this.logger('Rebrowser.finishRun not available (not using Rebrowser Cloud)');
+    }
   }
 
   static async from(
@@ -242,7 +400,27 @@ export class McpContext implements Context {
   }
 
   async newPage(): Promise<Page> {
-    const page = await this.browser.newPage();
+    // Rebrowser 最佳实践：优先复用已存在的页面而不是创建新页面
+    // 复用页面可以节省 500-700ms（newPage: 700-900ms vs 复用: 200-250ms）
+    // 参考：https://rebrowser.net/blog/how-to-fix-runtime-enable-cdp-detection
+    const existingPages = await this.browser.pages();
+    const blankPage = existingPages.find(p =>
+      p.url() === 'about:blank' || p.url() === 'chrome://newtab/'
+    );
+
+    let page: Page;
+    if (blankPage) {
+      this.logger('Reusing existing blank page for better performance');
+      page = blankPage;
+    } else {
+      this.logger('Creating new page (no blank page available)');
+      page = await this.browser.newPage();
+      // 为新创建的页面添加 Rebrowser 监控
+      await this.#setupRebrowserMonitoring([page]);
+    }
+
+    // 注释掉自定义反检测脚本，依赖 rebrowser-puppeteer 的原生补丁
+    // await this.#injectAntiDetectionScript(page);
     await this.createPagesSnapshot();
     this.selectPage(page);
     this.#networkCollector.addPage(page);
