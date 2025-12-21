@@ -150,3 +150,6 @@ log.txt
 .DS_Store
 
 settings*.json
+
+# External repositories
+puppeteer-real-browser-mcp-server/
