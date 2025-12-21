@@ -183,7 +183,7 @@ export function parseArguments(version: string, argv = process.argv) {
         // 默认使用 rebrowser Binary Patches Chrome，从源头移除 navigator.webdriver
         // 用户可以通过 --channel stable 显式指定使用系统 Chrome
         // 参考: docs/self_improve/fail_records/prd_webdriver_detection_20251220.md
-        // args.channel = 'stable';
+        // args.channel = 'stable';  // 注释掉，让 rebrowser 下载补丁版 Chrome
       }
       return true;
     })

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {Page} from 'rebrowser-puppeteer-core';
+import type {Page} from 'rebrowser-puppeteer';
 import {createCursor, type GhostCursor} from 'ghost-cursor';
 
 interface HumanCursorOptions {

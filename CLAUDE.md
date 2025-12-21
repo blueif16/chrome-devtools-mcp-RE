@@ -185,6 +185,35 @@ Test files mirror source structure in `tests/` directory.
 - **Node Version**: Requires Node 20.19+, 22.12+, or 23+
 - **User Data Dir**: Default is `$HOME/.cache/chrome-devtools-mcp/chrome-profile-$CHANNEL`
 
+## CRITICAL: MCP Development Workflow
+
+**Every time you modify source code, you MUST:**
+
+1. Rebuild the project:
+   ```bash
+   npm run build
+   ```
+
+2. Remove the old MCP server:
+   ```bash
+   claude mcp remove chrome-devtools
+   ```
+
+3. Re-add the MCP server with the new build:
+   ```bash
+   claude mcp add chrome-devtools node /Users/tk/Desktop/chrome-devtools-mcp-RE/build/src/index.js
+   ```
+
+**Why this matters:**
+- Building the code does NOT automatically update the running MCP server
+- The MCP server continues running the old code until you remove and re-add it
+- Testing without this workflow will show no changes, wasting time and effort
+
+**When testing with MCP tools:**
+- Always use MCP functions (navigate_page, evaluate_script, etc.) for testing
+- Never run standalone test scripts when you need to verify MCP behavior
+- The MCP tools reflect the actual runtime behavior that users will experience
+
 ## Configuration Options
 
 The server accepts CLI arguments for:

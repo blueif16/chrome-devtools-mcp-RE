@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {Page} from 'rebrowser-puppeteer-core';
+import type {Page} from 'rebrowser-puppeteer';
 
 /**
  * 视觉鼠标助手 - 在页面上显示一个可见的光标指示器

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {Page} from 'rebrowser-puppeteer-core';
+import type {Page} from 'rebrowser-puppeteer';
 
 /**
  * Screen Position Patcher - 修复 mouseEvent.screenX/screenY 不匹配问题

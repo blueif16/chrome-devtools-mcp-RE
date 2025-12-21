@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {logger} from './logger.js';
+import {applyStealthToBrowser} from './stealth.js';
 import type {
   Browser,
   ChromeReleaseChannel,
@@ -53,6 +54,12 @@ export async function ensureBrowserConnected(options: {
     return browser;
   }
 
+  // ⚠️ 警告：连接到外部 Chrome 会导致 rebrowser Binary Patches 失效
+  // navigator.webdriver 属性将无法被移除，Level 1 检测会失败
+  // 建议：使用 launch 模式让 rebrowser-puppeteer 自己启动 Chrome
+  logger('⚠️  WARNING: Connecting to external Chrome. rebrowser Binary Patches will NOT work!');
+  logger('⚠️  navigator.webdriver will still be present. Consider using launch mode instead.');
+
   const connectOptions: Parameters<typeof puppeteer.connect>[0] = {
     targetFilter: makeTargetFilter(),
     defaultViewport: null,
@@ -74,6 +81,10 @@ export async function ensureBrowserConnected(options: {
   logger('Connecting Puppeteer to ', JSON.stringify(connectOptions));
   browser = await puppeteer.connect(connectOptions);
   logger('Connected Puppeteer');
+
+  // 为连接的浏览器应用隐身脚本（但这只是 JavaScript 层面的修复，无法完全移除 webdriver）
+  await applyStealthToBrowser(browser);
+
   return browser;
 }
 
@@ -94,7 +105,8 @@ interface McpLaunchOptions {
 }
 
 export async function launch(options: McpLaunchOptions): Promise<Browser> {
-  const {channel, executablePath, headless, isolated} = options;
+  const {channel, headless, isolated} = options;
+  let {executablePath} = options;
   const profileDirName =
     channel && channel !== 'stable'
       ? `chrome-profile-${channel}`
@@ -125,17 +137,23 @@ export async function launch(options: McpLaunchOptions): Promise<Browser> {
     args.push('--auto-open-devtools-for-tabs');
   }
   if (!executablePath) {
-    // 只有在用户明确指定 channel 时才使用系统 Chrome
-    // 否则让 rebrowser-puppeteer 下载 Binary Patches 版本的 Chrome
-    // 这样可以从源头移除 navigator.webdriver，通过 Level 2 检测
-    if (channel) {
+    // 尝试使用已下载的 Chrome
+    const downloadedChromePath = path.join(
+      os.homedir(),
+      '.cache/puppeteer/chrome/mac_arm-143.0.7499.169/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'
+    );
+
+    if (fs.existsSync(downloadedChromePath)) {
+      executablePath = downloadedChromePath;
+      logger('Using downloaded Chrome:', executablePath);
+    } else if (channel) {
+      // 只有在用户明确指定 channel 时才使用系统 Chrome
       puppeteerChannel =
         channel !== 'stable'
           ? (`chrome-${channel}` as ChromeReleaseChannel)
           : 'chrome';
     }
-    // 如果 channel 为 undefined，puppeteerChannel 保持 undefined
-    // rebrowser-puppeteer 会自动下载补丁版 Chrome
+    // 如果都没有，puppeteer 会报错，提示用户需要指定 executablePath 或 channel
   }
 
   // 移除 Runtime Patches 环境变量，让 rebrowser-puppeteer 使用 Binary Patches
@@ -147,6 +165,12 @@ export async function launch(options: McpLaunchOptions): Promise<Browser> {
     '--disable-blink-features=AutomationControlled',
     '--exclude-switches=enable-automation',
     '--disable-dev-shm-usage',
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-infobars',
+    '--window-position=0,0',
+    '--ignore-certificate-errors',
+    '--ignore-certificate-errors-skip-list',
     '--disable-features=IsolateOrigins,site-per-process',
     '--disable-site-isolation-trials',
   ];
@@ -180,6 +204,10 @@ export async function launch(options: McpLaunchOptions): Promise<Browser> {
         contentHeight: options.viewport.height,
       });
     }
+
+    // 为启动的浏览器应用隐身脚本（关键步骤）
+    await applyStealthToBrowser(browser);
+
     return browser;
   } catch (error) {
     if (

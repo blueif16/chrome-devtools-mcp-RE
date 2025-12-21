@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {Page} from 'rebrowser-puppeteer-core';
+import type {Page} from 'rebrowser-puppeteer';
 import {getHumanCursor} from './human-cursor.js';
 
 export class RedditHelper {

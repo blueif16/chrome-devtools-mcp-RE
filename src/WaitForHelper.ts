@@ -5,11 +5,11 @@
  */
 
 import {logger} from './logger.js';
-import type {Page, Protocol, CdpPage} from './third_party/index.js';
+import type {Page, Protocol} from './third_party/index.js';
 
 export class WaitForHelper {
   #abortController = new AbortController();
-  #page: CdpPage;
+  #page: Page;
   #stableDomTimeout: number;
   #stableDomFor: number;
   #expectNavigationIn: number;
@@ -24,7 +24,7 @@ export class WaitForHelper {
     this.#stableDomFor = 100 * cpuTimeoutMultiplier;
     this.#expectNavigationIn = 100 * cpuTimeoutMultiplier;
     this.#navigationTimeout = 3000 * networkTimeoutMultiplier;
-    this.#page = page as unknown as CdpPage;
+    this.#page = page;
   }
 
   /**
@@ -33,7 +33,7 @@ export class WaitForHelper {
    * for the DOM to be stable before returning.
    */
   async waitForStableDom(): Promise<void> {
-    const stableDomObserver = await this.#page.evaluateHandle(timeout => {
+    const stableDomObserver = await this.#page.evaluateHandle((timeout: number) => {
       let timeoutId: ReturnType<typeof setTimeout>;
       function callback() {
         clearTimeout(timeoutId);
@@ -61,7 +61,7 @@ export class WaitForHelper {
 
     this.#abortController.signal.addEventListener('abort', async () => {
       try {
-        await stableDomObserver.evaluate(observer => {
+        await stableDomObserver.evaluate((observer: any) => {
           observer.observer.disconnect();
           observer.resolver.resolve();
         });
@@ -72,7 +72,7 @@ export class WaitForHelper {
     });
 
     return Promise.race([
-      stableDomObserver.evaluate(async observer => {
+      stableDomObserver.evaluate(async (observer: any) => {
         return await observer.resolver.promise;
       }),
       this.timeout(this.#stableDomTimeout).then(() => {
@@ -100,10 +100,10 @@ export class WaitForHelper {
         resolve(true);
       };
 
-      this.#page._client().on('Page.frameStartedNavigating', listener);
+      (this.#page as any).client.on('Page.frameStartedNavigating', listener);
       this.#abortController.signal.addEventListener('abort', () => {
         resolve(false);
-        this.#page._client().off('Page.frameStartedNavigating', listener);
+        (this.#page as any).client.off('Page.frameStartedNavigating', listener);
       });
     });
 
